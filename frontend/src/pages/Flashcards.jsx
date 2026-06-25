@@ -15,6 +15,9 @@ const Flashcards = () => {
   // Track review classifications: Easy, Medium, Hard
   const [cardDifficulties, setCardDifficulties] = useState({}); // { cardIndex: 'Easy' | 'Medium' | 'Hard' }
   const [completedCount, setCompletedCount] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState([]);
+  const [showSuccessScreen, setShowSuccessScreen] = useState(false);
+  const [markingAll, setMarkingAll] = useState(false);
   
   const [weekInfo, setWeekInfo] = useState({ currentWeek: 1, weekGoal: '' });
   const [upcomingTopics, setUpcomingTopics] = useState([]);
@@ -28,6 +31,7 @@ const Flashcards = () => {
     setIsFlipped(false);
     setCardDifficulties({});
     setCompletedCount(0);
+    setShowSuccessScreen(false);
     try {
       // 1. Fetch Flashcards
       const cardRes = await api.post('/ai/flashcards');
@@ -40,14 +44,15 @@ const Flashcards = () => {
          weekGoal: cardRes.data.weekGoal || '' 
       });
 
-      // 2. Fetch User Profile for Streak
+      // 2. Fetch Dashboard for Streak & Completed Tasks
       try {
-        const profileRes = await api.get('/auth/profile');
-        if (profileRes.data?.success) {
-          setStreak(profileRes.data.user?.streak || 0);
+        const dbRes = await api.get('/dashboard');
+        if (dbRes.data?.success) {
+          setStreak(dbRes.data.stats?.streak || 0);
+          setCompletedTasks(dbRes.data.completedTasks || []);
         }
-      } catch (profileErr) {
-        console.error('Failed to fetch profile streak:', profileErr);
+      } catch (dbErr) {
+        console.error('Failed to fetch dashboard data:', dbErr);
       }
 
       // 3. Fetch Roadmap for Upcoming Topics
@@ -69,6 +74,62 @@ const Flashcards = () => {
       setError(err.response?.data?.message || err.message || 'Failed to generate flashcards. Please try again.');
       setPhase('error');
     }
+  };
+
+  const isTopicCompleted = (topicName) => {
+    return completedTasks.some(
+      t => t.week === weekInfo.currentWeek && t.taskType === 'topic' && t.taskName.toLowerCase() === topicName.toLowerCase()
+    );
+  };
+
+  const handleToggleTopic = async (topicName) => {
+    try {
+      const res = await api.post('/complete-task', {
+        week: weekInfo.currentWeek,
+        taskType: 'topic',
+        taskName: topicName
+      });
+      if (res.data?.success) {
+        setCompletedTasks(res.data.completedTasks || []);
+      }
+    } catch (err) {
+      console.error('Failed to toggle topic completion:', err);
+    }
+  };
+
+  const handleMarkAllTopicsCompleted = async () => {
+    setMarkingAll(true);
+    try {
+      const pending = upcomingTopics.filter(t => !isTopicCompleted(t));
+      if (pending.length > 0) {
+        await Promise.all(
+          pending.map(topic => 
+            api.post('/complete-task', {
+              week: weekInfo.currentWeek,
+              taskType: 'topic',
+              taskName: topic
+            })
+          )
+        );
+        // Refresh completed tasks list
+        const dbRes = await api.get('/dashboard');
+        if (dbRes.data?.success) {
+          setCompletedTasks(dbRes.data.completedTasks || []);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to mark all topics completed:', err);
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
+  const handleRestartSession = () => {
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    setCardDifficulties({});
+    setCompletedCount(0);
+    setShowSuccessScreen(false);
   };
 
   const handleNext = () => {
@@ -95,13 +156,19 @@ const Flashcards = () => {
       ...prev,
       [currentIndex]: difficulty
     }));
+    
+    let newCompletedCount = completedCount;
     if (isNew) {
-      setCompletedCount(prev => prev + 1);
+      newCompletedCount = completedCount + 1;
+      setCompletedCount(newCompletedCount);
     }
-    // Auto-advance to next card with slight delay
+    
+    // Auto-advance to next card or show success screen if all cards are reviewed
     setTimeout(() => {
       if (currentIndex + 1 < cards.length) {
         handleNext();
+      } else if (newCompletedCount === cards.length) {
+        setShowSuccessScreen(true);
       }
     }, 400);
   };
@@ -221,145 +288,201 @@ const Flashcards = () => {
         
         {/* LEFT / CENTER PANEL (8 Columns) */}
         <div className="lg:col-span-8 space-y-5">
-          {/* Card Wrapper with 3D Flip */}
-          <div 
-            className="w-full h-80 cursor-pointer"
-            onClick={() => setIsFlipped(!isFlipped)}
-            style={{ perspective: '1000px' }}
-          >
-            <div 
-              className="relative w-full h-full duration-500"
-              style={{ 
-                transformStyle: 'preserve-3d',
-                transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
-              }}
-            >
-              {/* FRONT SIDE */}
-              <div 
-                className="absolute inset-0 rounded-2xl bg-white dark:bg-darkbg-card border border-slate-100 dark:border-darkbg-border shadow-md p-8 flex flex-col justify-between"
-                style={{ 
-                  backfaceVisibility: 'hidden',
-                  transform: 'rotateY(0deg)'
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-full px-3 py-0.5">
-                    {currentCard?.category || 'General'}
+          {showSuccessScreen ? (
+            <div className="w-full rounded-2xl bg-white dark:bg-darkbg-card border border-slate-100 dark:border-darkbg-border shadow-md p-8 flex flex-col items-center justify-center text-center space-y-6 min-h-[360px] animate-slide-in">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-950/20 text-emerald-500 shadow-md">
+                <Award className="h-9 w-9 text-emerald-500 animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-xl font-extrabold text-slate-800 dark:text-white">Deck Reviewed! 🎉</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-sm">
+                  Excellent job! You have gone through all <strong>{totalCards}</strong> active-recall cards in this study deck.
+                </p>
+              </div>
+              
+              {/* Quick summary metrics */}
+              <div className="grid grid-cols-3 gap-3 w-full max-w-xs py-1.5">
+                <div className="bg-green-50/50 dark:bg-green-950/10 border border-green-100/20 rounded-xl p-2.5">
+                  <p className="text-lg font-bold text-green-500">{difficultyCounts.Easy}</p>
+                  <p className="text-[10px] font-bold text-slate-400">Easy</p>
+                </div>
+                <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-100/20 rounded-xl p-2.5">
+                  <p className="text-lg font-bold text-amber-500">{difficultyCounts.Medium}</p>
+                  <p className="text-[10px] font-bold text-slate-400">Med</p>
+                </div>
+                <div className="bg-red-50/50 dark:bg-red-950/10 border border-red-100/20 rounded-xl p-2.5">
+                  <p className="text-lg font-bold text-red-500">{difficultyCounts.Hard}</p>
+                  <p className="text-[10px] font-bold text-slate-400">Hard</p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center">
+                <button
+                  onClick={handleMarkAllTopicsCompleted}
+                  disabled={markingAll || upcomingTopics.every(t => isTopicCompleted(t))}
+                  className="flex-1 rounded-xl bg-accent hover:bg-indigo-600 hover:scale-[1.01] active:scale-[0.99] disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 text-white py-3 text-xs font-bold shadow-md transition-all flex items-center justify-center space-x-2"
+                >
+                  <span>
+                    {markingAll 
+                      ? 'Updating progress...' 
+                      : upcomingTopics.every(t => isTopicCompleted(t)) 
+                        ? 'All Topics Completed ✅' 
+                        : 'Mark Topics as Completed'}
                   </span>
-                  <div className="flex items-center space-x-2">
-                    {activeDifficulty && (
-                      <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-full border ${diffColors[activeDifficulty] || ''}`}>
-                        Marked: {activeDifficulty}
+                </button>
+                <button
+                  onClick={handleRestartSession}
+                  className="flex-1 rounded-xl border border-slate-200 dark:border-darkbg-border bg-white dark:bg-darkbg-card hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 py-3 text-xs font-bold hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center space-x-2"
+                >
+                  <RotateCw className="h-4 w-4" />
+                  <span>Practice Again</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Card Wrapper with 3D Flip */}
+              <div 
+                className="w-full h-80 cursor-pointer"
+                onClick={() => setIsFlipped(!isFlipped)}
+                style={{ perspective: '1000px' }}
+              >
+                <div 
+                  className="relative w-full h-full duration-500"
+                  style={{ 
+                    transformStyle: 'preserve-3d',
+                    transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                  }}
+                >
+                  {/* FRONT SIDE */}
+                  <div 
+                    className="absolute inset-0 rounded-2xl bg-white dark:bg-darkbg-card border border-slate-100 dark:border-darkbg-border shadow-md p-8 flex flex-col justify-between"
+                    style={{ 
+                      backfaceVisibility: 'hidden',
+                      transform: 'rotateY(0deg)'
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-full px-3 py-0.5">
+                        {currentCard?.category || 'General'}
                       </span>
-                    )}
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-800 text-slate-400">
-                      {currentCard?.difficulty || 'Medium'}
-                    </span>
+                      <div className="flex items-center space-x-2">
+                        {activeDifficulty && (
+                          <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-full border ${diffColors[activeDifficulty] || ''}`}>
+                            Marked: {activeDifficulty}
+                          </span>
+                        )}
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-800 text-slate-400">
+                          {currentCard?.difficulty || 'Medium'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col items-center justify-center flex-1 text-center py-4">
+                      <HelpCircle className="h-8 w-8 text-indigo-100 dark:text-slate-800 mb-3" />
+                      <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-relaxed max-w-lg">
+                        {currentCard?.front}
+                      </h2>
+                    </div>
+
+                    <div className="flex items-center justify-center space-x-1.5 text-[10px] font-bold text-slate-400">
+                      <RotateCw className="h-3.5 w-3.5" />
+                      <span>Click to Flip Card (or Spacebar)</span>
+                    </div>
+                  </div>
+
+                  {/* BACK SIDE */}
+                  <div 
+                    className="absolute inset-0 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-indigo-100 dark:border-slate-800/80 shadow-md p-8 flex flex-col justify-between"
+                    style={{ 
+                      backfaceVisibility: 'hidden',
+                      transform: 'rotateY(180deg)'
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest bg-indigo-50/50 dark:bg-indigo-950/20 rounded-full px-3 py-0.5">
+                        Answer Key
+                      </span>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-800 text-slate-400">
+                        {currentCard?.difficulty || 'Medium'}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center flex-1 text-center py-4">
+                      <CheckCircle2 className="h-8 w-8 text-success mb-3" />
+                      <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 leading-relaxed max-w-lg">
+                        {currentCard?.back}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-center space-x-1.5 text-[10px] font-bold text-indigo-400">
+                      <RotateCw className="h-3.5 w-3.5" />
+                      <span>Click to Flip Back</span>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="flex flex-col items-center justify-center flex-1 text-center py-4">
-                  <HelpCircle className="h-8 w-8 text-indigo-100 dark:text-slate-800 mb-3" />
-                  <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-relaxed max-w-lg">
-                    {currentCard?.front}
-                  </h2>
-                </div>
-
-                <div className="flex items-center justify-center space-x-1.5 text-[10px] font-bold text-slate-400">
-                  <RotateCw className="h-3.5 w-3.5" />
-                  <span>Click to Flip Card (or Spacebar)</span>
-                </div>
               </div>
 
-              {/* BACK SIDE */}
-              <div 
-                className="absolute inset-0 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-indigo-100 dark:border-slate-800/80 shadow-md p-8 flex flex-col justify-between"
-                style={{ 
-                  backfaceVisibility: 'hidden',
-                  transform: 'rotateY(180deg)'
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest bg-indigo-50/50 dark:bg-indigo-950/20 rounded-full px-3 py-0.5">
-                    Answer Key
+              {/* Navigation and Confidence Level Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                {/* Arrows */}
+                <div className="flex items-center space-x-3">
+                  <button 
+                    onClick={handlePrev}
+                    disabled={currentIndex === 0}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-white dark:bg-darkbg-card border border-slate-200 dark:border-darkbg-border hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                  <span className="text-xs font-bold text-slate-400 select-none">
+                    {currentIndex + 1} / {totalCards}
                   </span>
-                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-800 text-slate-400">
-                    {currentCard?.difficulty || 'Medium'}
-                  </span>
+                  <button 
+                    onClick={handleNext}
+                    disabled={currentIndex === totalCards - 1}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-white dark:bg-darkbg-card border border-slate-200 dark:border-darkbg-border hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
                 </div>
 
-                <div className="flex flex-col items-center justify-center flex-1 text-center py-4">
-                  <CheckCircle2 className="h-8 w-8 text-success mb-3" />
-                  <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 leading-relaxed max-w-lg">
-                    {currentCard?.back}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-center space-x-1.5 text-[10px] font-bold text-indigo-400">
-                  <RotateCw className="h-3.5 w-3.5" />
-                  <span>Click to Flip Back</span>
+                {/* Confidence Buttons */}
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => handleSetDifficulty('Hard')}
+                    className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-950/20 text-xs font-bold transition-all ${
+                      activeDifficulty === 'Hard'
+                        ? 'bg-red-500 text-white shadow-md shadow-red-500/10'
+                        : 'bg-white dark:bg-darkbg-card hover:bg-red-50 dark:hover:bg-red-950/10 text-red-600 dark:text-red-400'
+                    }`}
+                  >
+                    🔴 Hard
+                  </button>
+                  <button
+                    onClick={() => handleSetDifficulty('Medium')}
+                    className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-amber-200 dark:border-amber-950/20 text-xs font-bold transition-all ${
+                      activeDifficulty === 'Medium'
+                        ? 'bg-amber-500 text-white shadow-md shadow-amber-500/10'
+                        : 'bg-white dark:bg-darkbg-card hover:bg-amber-50 dark:hover:bg-amber-950/10 text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
+                    🟡 Medium
+                  </button>
+                  <button
+                    onClick={() => handleSetDifficulty('Easy')}
+                    className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-green-200 dark:border-green-950/20 text-xs font-bold transition-all ${
+                      activeDifficulty === 'Easy'
+                        ? 'bg-green-500 text-white shadow-md shadow-green-500/10'
+                        : 'bg-white dark:bg-darkbg-card hover:bg-green-50 dark:hover:bg-green-950/10 text-green-600 dark:text-green-400'
+                    }`}
+                  >
+                    🟢 Easy
+                  </button>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Navigation and Confidence Level Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            {/* Arrows */}
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={handlePrev}
-                disabled={currentIndex === 0}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white dark:bg-darkbg-card border border-slate-200 dark:border-darkbg-border hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <span className="text-xs font-bold text-slate-400 select-none">
-                {currentIndex + 1} / {totalCards}
-              </span>
-              <button 
-                onClick={handleNext}
-                disabled={currentIndex === totalCards - 1}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white dark:bg-darkbg-card border border-slate-200 dark:border-darkbg-border hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <ArrowRight className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Confidence Buttons */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                onClick={() => handleSetDifficulty('Hard')}
-                className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-950/20 text-xs font-bold transition-all ${
-                  activeDifficulty === 'Hard'
-                    ? 'bg-red-500 text-white shadow-md shadow-red-500/10'
-                    : 'bg-white dark:bg-darkbg-card hover:bg-red-50 dark:hover:bg-red-950/10 text-red-600 dark:text-red-400'
-                }`}
-              >
-                🔴 Hard
-              </button>
-              <button
-                onClick={() => handleSetDifficulty('Medium')}
-                className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-amber-200 dark:border-amber-950/20 text-xs font-bold transition-all ${
-                  activeDifficulty === 'Medium'
-                    ? 'bg-amber-500 text-white shadow-md shadow-amber-500/10'
-                    : 'bg-white dark:bg-darkbg-card hover:bg-amber-50 dark:hover:bg-amber-950/10 text-amber-600 dark:text-amber-400'
-                }`}
-              >
-                🟡 Medium
-              </button>
-              <button
-                onClick={() => handleSetDifficulty('Easy')}
-                className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-green-200 dark:border-green-950/20 text-xs font-bold transition-all ${
-                  activeDifficulty === 'Easy'
-                    ? 'bg-green-500 text-white shadow-md shadow-green-500/10'
-                    : 'bg-white dark:bg-darkbg-card hover:bg-green-50 dark:hover:bg-green-950/10 text-green-600 dark:text-green-400'
-                }`}
-              >
-                🟢 Easy
-              </button>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         {/* RIGHT PANEL (4 Columns) */}
@@ -412,20 +535,34 @@ const Flashcards = () => {
 
           {/* Upcoming Topics Card */}
           {upcomingTopics.length > 0 && (
-            <div className="rounded-2xl bg-white p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm space-y-3">
+            <div className="rounded-2xl bg-white p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm space-y-3 animate-slide-in">
               <div className="flex items-center space-x-2">
                 <BookOpen className="h-4.5 w-4.5 text-purple-500" />
                 <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Active Week Topics</h3>
               </div>
-              <ul className="space-y-2">
-                {upcomingTopics.map((topic, index) => (
-                  <li key={index} className="flex items-start text-xs text-slate-600 dark:text-slate-300">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-900 font-bold text-[10px] text-slate-400 border border-slate-100 dark:border-slate-850 mr-2 flex-shrink-0">
-                      {index + 1}
-                    </span>
-                    <span className="pt-0.5 truncate flex-1">{topic}</span>
-                  </li>
-                ))}
+              <ul className="space-y-2.5">
+                {upcomingTopics.map((topic, index) => {
+                  const done = isTopicCompleted(topic);
+                  return (
+                    <li key={index} className="flex items-center justify-between text-xs p-1 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
+                      <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                        <button
+                          onClick={() => handleToggleTopic(topic)}
+                          className={`flex h-4.5 w-4.5 items-center justify-center rounded border transition-all ${
+                            done 
+                              ? 'bg-accent border-accent text-white' 
+                              : 'border-slate-300 dark:border-slate-700 hover:border-accent text-transparent bg-white dark:bg-darkbg-card'
+                          }`}
+                        >
+                          <Check className="h-3 w-3 stroke-[3]" />
+                        </button>
+                        <span className={`truncate text-slate-700 dark:text-slate-300 font-semibold ${done ? 'line-through opacity-45' : ''}`}>
+                          {topic}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

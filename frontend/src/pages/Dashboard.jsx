@@ -538,56 +538,56 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Summary Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
         {/* Streak */}
-        <div className="rounded-2xl bg-white p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center space-x-4">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-950/20 dark:text-orange-400">
-            <Flame className="h-6 w-6 fill-current animate-pulse" />
+        <div className="rounded-2xl bg-white p-4 sm:p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center space-x-3 sm:space-x-4">
+          <span className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-orange-100 text-orange-600 dark:bg-orange-950/20 dark:text-orange-400 flex-shrink-0">
+            <Flame className="h-5.5 w-5.5 sm:h-6 sm:w-6 fill-current animate-pulse" />
           </span>
           <div>
-            <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{stats.streak}d</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-800 dark:text-white">{stats.streak}d</p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Day Streak</p>
           </div>
         </div>
 
         {/* Level / XP */}
-        <div className="rounded-2xl bg-white p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center space-x-4">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-100 text-yellow-600 dark:bg-yellow-955/20 dark:text-yellow-400">
-            <Award className="h-6 w-6" />
+        <div className="rounded-2xl bg-white p-4 sm:p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center space-x-3 sm:space-x-4">
+          <span className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-yellow-100 text-yellow-600 dark:bg-yellow-955/20 dark:text-yellow-400 flex-shrink-0">
+            <Award className="h-5.5 w-5.5 sm:h-6 sm:w-6" />
           </span>
           <div>
-            <p className="text-xl font-extrabold text-slate-800 dark:text-white">Lvl {level}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-450">{xp} / {nextLevelXp} XP</p>
+            <p className="text-lg sm:text-xl font-extrabold text-slate-800 dark:text-white">Lvl {level}</p>
+            <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-450">{xp} / {nextLevelXp} XP</p>
           </div>
         </div>
 
         {/* Completion Percentage Ring */}
-        <div className="rounded-2xl bg-white p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center justify-between">
+        <div className="rounded-2xl bg-white p-4 sm:p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center justify-between col-span-2 lg:col-span-1">
           <div>
-            <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{stats.completionPercentage}%</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-800 dark:text-white">{stats.completionPercentage}%</p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-405">Completion</p>
           </div>
-          <CircularProgress percentage={stats.completionPercentage} />
+          <CircularProgress percentage={stats.completionPercentage} size={56} />
         </div>
 
         {/* Completed Tasks */}
-        <div className="rounded-2xl bg-white p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center space-x-4">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 text-green-600 dark:bg-green-950/20 dark:text-green-400">
-            <CheckSquare className="h-6 w-6" />
+        <div className="rounded-2xl bg-white p-4 sm:p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center space-x-3 sm:space-x-4">
+          <span className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-green-100 text-green-600 dark:bg-green-950/20 dark:text-green-400 flex-shrink-0">
+            <CheckSquare className="h-5.5 w-5.5 sm:h-6 sm:w-6" />
           </span>
           <div>
-            <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{stats.completedTasksCount} / {stats.totalTasks}</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-800 dark:text-white">{stats.completedTasksCount} / {stats.totalTasks}</p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Completed Tasks</p>
           </div>
         </div>
 
         {/* Hours Studied */}
-        <div className="rounded-2xl bg-white p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center space-x-4">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-purple-600 dark:bg-purple-950/20 dark:text-purple-400">
-            <Clock className="h-6 w-6" />
+        <div className="rounded-2xl bg-white p-4 sm:p-5 border border-slate-100 dark:bg-darkbg-card dark:border-darkbg-border shadow-sm flex items-center space-x-3 sm:space-x-4">
+          <span className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-purple-100 text-purple-600 dark:bg-purple-950/20 dark:text-purple-400 flex-shrink-0">
+            <Clock className="h-5.5 w-5.5 sm:h-6 sm:w-6" />
           </span>
           <div>
-            <p className="text-2xl font-extrabold text-slate-800 dark:text-white">{stats.totalHoursStudied}h</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-800 dark:text-white">{stats.totalHoursStudied}h</p>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Total Hours</p>
           </div>
         </div>
