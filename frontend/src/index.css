@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 transition-colors duration-300 font-sans antialiased selection:bg-accent selection:text-white;
+  }
+  
+  body.dark {
+    @apply bg-darkbg text-slate-100;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full transition-colors;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-slate-800;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-700;
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  @apply bg-white/70 backdrop-blur-md border border-slate-200/50 shadow-lg shadow-slate-100/50;
+}
+
+.dark .glass-panel {
+  @apply bg-darkbg-card/75 backdrop-blur-md border-darkbg-border shadow-none;
+}
+
+.glass-card {
+  @apply bg-white/80 backdrop-blur-sm border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300;
+}
+
+.dark .glass-card {
+  @apply bg-slate-900/60 backdrop-blur-sm border-darkbg-border shadow-none hover:bg-slate-900/80;
+}
+
+/* Custom Gradient Text */
+.gradient-text {
+  @apply bg-gradient-to-r from-accent to-blue-400 bg-clip-text text-transparent;
+}
+
+/* Custom animations */
+@keyframes slideIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.4s ease forwards;
+}
