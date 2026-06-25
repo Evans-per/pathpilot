@@ -329,7 +329,20 @@ function generateMockRoadmap(interest, level, deadlineValue, deadlineUnit, daily
       ) {
         baseCurriculum = curricula['Web Development'];
       } else if (
-        interestLower.includes('data') || 
+        interestLower.includes('dsa') ||
+        interestLower.includes('algo') ||
+        interestLower.includes('struct') ||
+        interestLower.includes('structure')
+      ) {
+        baseCurriculum = curricula['DSA'];
+      } else if (
+        interestLower.includes('data science') ||
+        interestLower.includes('data analyst') ||
+        interestLower.includes('analytics') ||
+        interestLower.includes('data')
+      ) {
+        baseCurriculum = curricula['Data Science'];
+      } else if (
         interestLower.includes('ai') || 
         interestLower.includes('ml') || 
         interestLower.includes('machine') || 
@@ -339,9 +352,6 @@ function generateMockRoadmap(interest, level, deadlineValue, deadlineUnit, daily
         baseCurriculum = curricula['AI'];
       } else if (
         interestLower.includes('git') ||
-        interestLower.includes('dsa') ||
-        interestLower.includes('algo') ||
-        interestLower.includes('struct') ||
         interestLower.includes('program') ||
         interestLower.includes('code') ||
         interestLower.includes('develop') ||
