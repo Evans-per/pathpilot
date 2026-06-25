@@ -90,9 +90,10 @@ export const AuthProvider = ({ children }) => {
   // Load user data on boot if token exists
   useEffect(() => {
     const initializeAuth = async () => {
+      const storedToken = localStorage.getItem('pathpilot_token');
       const storedUser = localStorage.getItem('pathpilot_user');
       
-      if (token) {
+      if (storedToken) {
         try {
           setUser(storedUser ? JSON.parse(storedUser) : null);
           // Verify with backend to get latest points/streak and ensure session is active
@@ -122,7 +123,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       window.removeEventListener('auth_expired', handleAuthExpired);
     };
-  }, [token]);
+  }, []);
 
   // Refresh profile details (points/streak)
   const refreshProfile = async () => {
